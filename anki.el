@@ -27,8 +27,19 @@
     (let-alist reply
       (when .error (error .error))
       .result)))
-(defun anki-create-note ()
-  )
+
+(defun anki-connect-model-names ()
+  "Gets the complete list of model names for the current user."
+  (let ((json-array-type 'list))
+    (anki-connect-action "modelNames")))
+
+(defun anki-connect-model-field-names (model-name)
+  "Gets the complete list of field names for MODEL-NAME."
+  (let ((json-array-type 'list))
+    (anki-connect-action "modelFieldNames" `(("modelName" . ,model-name)))))
+
+(defun anki-get-note (note-id)
+  (aref (anki-connect-action "notesInfo" `(("notes" . (,note-id)))) 0))
 
 ;;; Forms
 
