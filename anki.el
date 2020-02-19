@@ -43,23 +43,21 @@
 
 ;;; Forms
 
-(defun anki-form-note ()
+(defun anki-form-note (&optional note-type note-id)
   "Anki widget"
-  (interactive)
-  (switch-to-buffer "*Anki Add Note*")
+  (interactive
+   (list (completing-read "Note Type: " (anki-connect-model-names))))
+  ;; Setup
+  (switch-to-buffer "*Anki Note*")
   (kill-all-local-variables)
   (let ((inhibit-read-only t))
     (erase-buffer))
   (remove-overlays)
-
   (widget-insert "Create a new card \n\n")
-  (setq-local
-   front-widget (widget-create 'editable-field
-                               :format "Front:\n%v"))
-  (setq-local
-   back-widget
-   (widget-create 'editable-field
-                  :format "Back:\n%v"))
+
+  (let ((fields (mapcar 'list (anki-connect-model-field-names note-type))))
+    (mapcar 'anki--create-field fields))
+  ;; Populate
   (use-local-map widget-keymap)
   (widget-create 'push-button
                  :notify (lambda (&rest ignore)
@@ -77,3 +75,10 @@
                                                   ("tags" . ,(vconcat nil))))))))))
                  "Submit")
   (widget-setup))
+
+(defun anki--create-field (field-data)
+  (let ((field-name (car field-data))
+        (field-value (cdr field-data)))
+    (widget-create 'editable-field
+                   :format (concat field-name ":\n%v")
+                   :value (or field-value ""))))
