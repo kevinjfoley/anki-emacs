@@ -38,8 +38,16 @@
   (let ((json-array-type 'list))
     (anki-connect-action "modelFieldNames" `(("modelName" . ,model-name)))))
 
-(defun anki-get-note (note-id)
+(defun anki-connect-note-info (note-id)
   (aref (anki-connect-action "notesInfo" `(("notes" . (,note-id)))) 0))
+
+(defun anki--note-field-data (note-data)
+  "Transform NOTE-DATA to an alist of field name and field value."
+  (mapcar (lambda (field)
+            (cons
+             (symbol-name (car field))
+             (alist-get 'value (cdr field))))
+          (alist-get 'fields note-data)))
 
 ;;; Forms
 
@@ -55,7 +63,9 @@
   (remove-overlays)
   (widget-insert "Create a new card \n\n")
 
-  (let ((fields (mapcar 'list (anki-connect-model-field-names note-type))))
+  (let ((fields (or
+                 (and note-id (anki--note-field-data (anki-connect-note-info note-id)))
+                 (mapcar 'list (anki-connect-model-field-names note-type)))))
     (mapcar 'anki--create-field fields))
   ;; Populate
   (use-local-map widget-keymap)
