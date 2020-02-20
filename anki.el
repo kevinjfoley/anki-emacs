@@ -33,6 +33,11 @@
   (let ((json-array-type 'list))
     (anki-connect-action "modelNames")))
 
+(defun anki-connect-deck-names ()
+  "Gets the complete list of deck names for the current user."
+  (let ((json-array-type 'list))
+    (anki-connect-action "deckNames")))
+
 (defun anki-connect-model-field-names (model-name)
   "Gets the complete list of field names for MODEL-NAME."
   (let ((json-array-type 'list))
@@ -40,6 +45,18 @@
 
 (defun anki-connect-note-info (note-id)
   (aref (anki-connect-action "notesInfo" `(("notes" . (,note-id)))) 0))
+
+(defun anki-connect-add-note (deck-name model-name fields &optional tags allow-duplicate audio)
+  (let ((json-null)))
+  (anki-connect-action
+   "addNote"
+   `((note .
+           ((deckName . ,deck-name)
+            (modelName . ,model-name)
+            ;; TODO Add check that fields actually exist in model
+            (fields . ,fields)
+            (options . ((allowDuplicate . ,(or allow-duplicate :json-false))))
+            (tags . ,(vconcat tags)))))))
 
 (defun anki--note-field-data (note-data)
   "Transform NOTE-DATA to an alist of field name and field value."
@@ -51,44 +68,47 @@
 
 ;;; Forms
 
-(defun anki-form-note (&optional note-type note-id)
+(defun anki-form-note (&optional deck note-type note-id)
   "Anki widget"
   (interactive
-   (list (completing-read "Note Type: " (anki-connect-model-names))))
+   (list (completing-read "Deck: " (anki-connect-deck-names))
+         (completing-read "Note Type: " (anki-connect-model-names))))
   ;; Setup
   (switch-to-buffer "*Anki Note*")
   (kill-all-local-variables)
   (let ((inhibit-read-only t))
     (erase-buffer))
   (remove-overlays)
+  (defvar-local anki-field-widgets nil)
+  (defvar-local anki-deck-name deck)
+  (defvar-local anki-note-type note-type)
+  (defvar-local anki-note-id note-id)
   (widget-insert "Create a new card \n\n")
 
   (let ((fields (or
                  (and note-id (anki--note-field-data (anki-connect-note-info note-id)))
                  (mapcar 'list (anki-connect-model-field-names note-type)))))
-    (mapcar 'anki--create-field fields))
-  ;; Populate
-  (use-local-map widget-keymap)
-  (widget-create 'push-button
-                 :notify (lambda (&rest ignore)
-                           (let ((note-front (widget-value front-widget))
-                                 (note-back (widget-value back-widget)))
-                             (message
-                              (int-to-string (anki-connect-action
-                                              "addNote"
-                                              `(("note" .
-                                                 (("deckName" . "Test")
-                                                  ("modelName" . "Basic")
-                                                  ("fields" .
-                                                   (("Front" . ,note-front)
-                                                    ("Back" . ,note-back)))
-                                                  ("tags" . ,(vconcat nil))))))))))
-                 "Submit")
+    (setq anki-field-widgets (mapcar 'anki--create-field fields))
+    ;; Populate
+    (use-local-map widget-keymap)
+    (widget-create 'push-button
+                     :notify (lambda (&rest ignore)
+                         (let ((fields (mapcar
+                                        (lambda (widget)
+                                          (cons (widget-get widget :anki-field-name) (widget-value widget)))
+                                        anki-field-widgets)))
+                           (message
+                            (int-to-string
+                             (anki-connect-add-note anki-deck-name anki-note-type fields)))))
+                     "Submit"))
   (widget-setup))
 
 (defun anki--create-field (field-data)
   (let ((field-name (car field-data))
-        (field-value (cdr field-data)))
-    (widget-create 'editable-field
-                   :format (concat field-name ":\n%v")
-                   :value (or field-value ""))))
+        (field-value (cdr field-data))
+        widget)
+    (setq widget (widget-create 'editable-field
+                                :format (concat field-name ":\n%v")
+                                :value (or field-value "")))
+    (widget-put widget :anki-field-name field-name)
+    widget))
