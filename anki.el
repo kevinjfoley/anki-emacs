@@ -59,11 +59,11 @@
             (tags . ,(vconcat tags)))))))
 
 (defun anki--note-field-data (note-data)
-  "Transform NOTE-DATA to an alist of field name and field value."
+  "Transform NOTE-DATA to an alist of field name and org field value."
   (mapcar (lambda (field)
             (cons
              (symbol-name (car field))
-             (alist-get 'value (cdr field))))
+             (anki-convert-html-to-org (alist-get 'value (cdr field)))))
           (alist-get 'fields note-data)))
 
 ;;; Forms
@@ -95,7 +95,8 @@
                      :notify (lambda (&rest ignore)
                          (let ((fields (mapcar
                                         (lambda (widget)
-                                          (cons (widget-get widget :anki-field-name) (widget-value widget)))
+                                          (cons (widget-get widget :anki-field-name)
+                                                (anki-convert-org-to-html (widget-value widget))))
                                         anki-field-widgets)))
                            (message
                             (int-to-string
@@ -112,3 +113,17 @@
                                 :value (or field-value "")))
     (widget-put widget :anki-field-name field-name)
     widget))
+
+(defun anki-convert-org-to-html (org)
+  "Convert ORG to html string."
+  (with-temp-buffer
+    (insert org)
+    (mark-whole-buffer)
+    (org-html-convert-region-to-html)
+    (buffer-string)))
+
+(defun anki-convert-html-to-org (html)
+  (let ((html-temp-file (make-temp-file "html" nil ".html" html)))
+    (substring (shell-command-to-string
+                (format "pandoc -f html -t org %s" html-temp-file))
+               nil -1)))
