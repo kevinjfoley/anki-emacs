@@ -47,16 +47,26 @@
   (aref (anki-connect-action "notesInfo" `(("notes" . (,note-id)))) 0))
 
 (defun anki-connect-add-note (deck-name model-name fields &optional tags allow-duplicate audio)
-  (let ((json-null)))
-  (anki-connect-action
-   "addNote"
-   `((note .
-           ((deckName . ,deck-name)
-            (modelName . ,model-name)
-            ;; TODO Add check that fields actually exist in model
-            (fields . ,fields)
-            (options . ((allowDuplicate . ,(or allow-duplicate :json-false))))
-            (tags . ,(vconcat tags)))))))
+  (let ((json-null))
+    (anki-connect-action
+     "addNote"
+     `((note .
+             ((deckName . ,deck-name)
+              (modelName . ,model-name)
+              ;; TODO Add check that fields actually exist in model
+              (fields . ,fields)
+              (options . ((allowDuplicate . ,(or allow-duplicate :json-false))))
+              (tags . ,(vconcat tags))))))))
+
+(defun anki-connect-update-note (note-id &optional fields tags)
+  (let ((json-null))
+    (anki-connect-action
+     "updateNoteFields"
+     `((note .
+             ((id . ,note-id)
+              (fields . ,fields)))))
+    ;; TODO Handle tags (need to get current, then add/remove as needed
+    ))
 
 (defun anki--note-field-data (note-data)
   "Transform NOTE-DATA to an alist of field name and org field value."
@@ -74,6 +84,8 @@
    (list (completing-read "Deck: " (anki-connect-deck-names))
          (completing-read "Note Type: " (anki-connect-model-names))))
   ;; Setup
+  (when (get-buffer "*Anki Note*")
+    (kill-buffer "*Anki Note*"))
   (switch-to-buffer "*Anki Note*")
   (kill-all-local-variables)
   (let ((inhibit-read-only t))
@@ -83,6 +95,10 @@
   (defvar-local anki-deck-name deck)
   (defvar-local anki-note-type note-type)
   (defvar-local anki-note-id note-id)
+
+  (setq anki-deck-name deck
+        anki-note-type note-type
+        anki-note-id note-id)
   (widget-insert "Create a new card \n\n")
 
   (let ((fields (or
@@ -92,16 +108,18 @@
     ;; Populate
     (use-local-map widget-keymap)
     (widget-create 'push-button
-                     :notify (lambda (&rest ignore)
-                         (let ((fields (mapcar
-                                        (lambda (widget)
-                                          (cons (widget-get widget :anki-field-name)
-                                                (anki-convert-org-to-html (widget-value widget))))
-                                        anki-field-widgets)))
-                           (message
-                            (int-to-string
-                             (anki-connect-add-note anki-deck-name anki-note-type fields)))))
-                     "Submit"))
+                   :notify (lambda (&rest ignore)
+                             (let ((fields (mapcar
+                                            (lambda (widget)
+                                              (cons (widget-get widget :anki-field-name)
+                                                    (anki-convert-org-to-html (widget-value widget))))
+                                            anki-field-widgets)))
+                               (message
+                                (if anki-note-id
+                                    (anki-connect-update-note anki-note-id fields)
+                                  (int-to-string
+                                   (anki-connect-add-note anki-deck-name anki-note-type fields))))))
+                   "Submit"))
   (widget-setup))
 
 (defun anki--create-field (field-data)
