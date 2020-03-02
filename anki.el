@@ -114,13 +114,14 @@
                                               (cons (widget-get widget :anki-field-name)
                                                     (anki-convert-org-to-html (widget-value widget))))
                                             anki-field-widgets)))
-                               (message
-                                (if anki-note-id
-                                    (anki-connect-update-note anki-note-id fields)
-                                  (int-to-string
-                                   (anki-connect-add-note anki-deck-name anki-note-type fields))))))
+                               (if anki-note-id
+                                   (anki-connect-update-note anki-note-id fields)
+                                 (setq anki-note-id
+                                       (anki-connect-add-note anki-deck-name anki-note-type fields)))
+                               (anki-form-note anki-deck-name anki-note-type)))
                    "Submit"))
-  (widget-setup))
+  (widget-setup)
+  (widget-forward 1))
 
 (defun anki--create-field (field-data)
   (let ((field-name (car field-data))
