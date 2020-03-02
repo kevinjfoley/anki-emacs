@@ -16,7 +16,10 @@
     anki-action-data))
 
 (defun anki-connect-action (action &optional params)
-  (let ((url-request-data (json-encode (anki-connect--action-format action params)))
+  (let ((url-request-data
+         (encode-coding-string
+          (json-encode (anki-connect--action-format action params))
+          'utf-8))
         (url-request-method "POST")
         reply)
 
