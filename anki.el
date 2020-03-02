@@ -135,14 +135,17 @@
 
 (defun anki-convert-org-to-html (org)
   "Convert ORG to html string."
-  (with-temp-buffer
-    (insert org)
-    (mark-whole-buffer)
-    (org-html-convert-region-to-html)
-    (buffer-string)))
+  (if (not (string= "" org))
+      (with-temp-buffer
+        (insert org)
+        (mark-whole-buffer)
+        (org-html-convert-region-to-html)
+        (buffer-string))
+    ""))
 
 (defun anki-convert-html-to-org (html)
-  (let ((html-temp-file (make-temp-file "html" nil ".html" html)))
-    (substring (shell-command-to-string
-                (format "pandoc -f html -t org %s" html-temp-file))
-               nil -1)))
+  (when html
+    (let ((html-temp-file (make-temp-file "html" nil ".html" html)))
+      (substring (shell-command-to-string
+                  (format "pandoc -f html -t org %s" html-temp-file))
+                 nil -1))))
