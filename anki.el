@@ -143,6 +143,15 @@
         (insert org)
         (mark-whole-buffer)
         (org-html-convert-region-to-html)
+        ;; Remove paragraph tags
+        (goto-char (point-min))
+        (when (search-forward "<p>" nil t)
+          (replace-match "")
+          (when (looking-at "$")
+            (delete-char 1))
+          (goto-char (point-max))
+          (when (search-backward "</p>" nil t)
+            (replace-match "")))
         (buffer-string))
     ""))
 
