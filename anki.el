@@ -68,16 +68,9 @@
      `((note .
              ((id . ,note-id)
               (fields . ,fields)))))
-    ;; TODO Handle tags (need to get current, then add/remove as needed
+    ;; TODO: Handle tags (need to get current, then add/remove as
+    ;;       needed
     ))
-
-(defun anki--note-field-data (note-data)
-  "Transform NOTE-DATA to an alist of field name and org field value."
-  (mapcar (lambda (field)
-            (cons
-             (symbol-name (car field))
-             (anki-convert-html-to-org (alist-get 'value (cdr field)))))
-          (alist-get 'fields note-data)))
 
 ;;; Forms
 
@@ -125,6 +118,14 @@
                    "Submit"))
   (widget-setup)
   (widget-forward 1))
+
+(defun anki--note-field-data (note-data)
+  "Transform NOTE-DATA to an alist of field name and org field value."
+  (mapcar (lambda (field)
+            (cons
+             (symbol-name (car field))
+             (anki-convert-html-to-org (alist-get 'value (cdr field)))))
+          (alist-get 'fields note-data)))
 
 (defun anki--create-field (field-data)
   (let ((field-name (car field-data))
