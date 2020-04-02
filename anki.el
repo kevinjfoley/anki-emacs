@@ -74,19 +74,21 @@
 
 ;;; Forms
 
-(defun anki-form-note (&optional deck note-type note-id)
-  "Anki widget"
+(defun anki-create-note (deck note-type)
   (interactive
    (list (completing-read "Deck: " (anki-connect-deck-names))
          (completing-read "Note Type: " (anki-connect-model-names))))
+  (anki-edit--note deck note-type))
+
+(defun anki-edit-note (note-id)
+  (anki-edit--note nil nil note-id))
+
+(defun anki-edit--note (&optional deck note-type note-id)
   ;; Setup
   (when (get-buffer "*Anki Note*")
     (kill-buffer "*Anki Note*"))
   (switch-to-buffer "*Anki Note*")
-  (kill-all-local-variables)
-  (let ((inhibit-read-only t))
-    (erase-buffer))
-  (remove-overlays)
+  (org-mode)
   (defvar-local anki-field-widgets nil)
   (defvar-local anki-deck-name deck)
   (defvar-local anki-note-type note-type)
@@ -95,27 +97,55 @@
   (setq anki-deck-name deck
         anki-note-type note-type
         anki-note-id note-id)
-  (widget-insert "Create a new card \n\n")
 
-  (let ((fields (or
-                 (and note-id (anki--note-field-data (anki-connect-note-info note-id)))
-                 (mapcar 'list (anki-connect-model-field-names note-type)))))
+  (let ((fields
+	 (or
+          (and note-id (anki--note-field-data (anki-connect-note-info note-id)))
+          (mapcar 'list (anki-connect-model-field-names note-type)))))
     (setq anki-field-widgets (mapcar 'anki--create-field fields))
     ;; Populate
-    (use-local-map widget-keymap)
-    (widget-create 'push-button
-                   :notify (lambda (&rest ignore)
-                             (let ((fields (mapcar
-                                            (lambda (widget)
-                                              (cons (widget-get widget :anki-field-name)
-                                                    (anki-convert-org-to-html (widget-value widget))))
-                                            anki-field-widgets)))
-                               (if anki-note-id
-                                   (anki-connect-update-note anki-note-id fields)
-                                 (setq anki-note-id
-                                       (anki-connect-add-note anki-deck-name anki-note-type fields)))
-                               (anki-form-note anki-deck-name anki-note-type)))
-                   "Submit"))
+    ;; (use-local-map widget-keymap)
+    ;; (widget-create 'push-button
+    ;;                :notify (lambda (&rest ignore)
+    ;;                          (let ((fields (mapcar
+    ;;                                         (lambda (widget)
+    ;;                                           (cons (widget-get widget :anki-field-name)
+    ;;                                                 (anki-convert-org-to-html (widget-value widget))))
+    ;;                                         anki-field-widgets)))
+    ;;                            (if anki-note-id
+    ;;                                (anki-connect-update-note anki-note-id fields)
+    ;;                              (setq anki-note-id
+    ;;                                    (anki-connect-add-note anki-deck-name anki-note-type fields)))
+    ;;                            (anki-form-note anki-deck-name anki-note-type)))
+    ;;                "Submit")
+    (om-insert 1 anki-field-widgets)))
+
+(defun anki-edit-submit ()
+  ;; TODO: Possibly split the field generation into separate function
+  (let ((fields (mapcar (lambda (field)
+			  (cons (anki--om-to-string (om-get-property :title field))
+				(anki-convert-org-to-html (anki--om-to-string (om-headline-get-section field)))))
+			(om-get-headlines))))
+    (if anki-note-id
+	(anki-connect-update-note anki-note-id fields)
+      (setq anki-note-id
+	    (anki-connect-add-note anki-deck-name anki-note-type fields)))
+    (anki-edit--note anki-deck-name anki-note-type)))
+
+(defun anki-form-note (&optional deck note-type note-id)
+  "Anki widget"
+  (interactive
+   (list (completing-read "Deck: " (anki-connect-deck-names))
+         (completing-read "Note Type: " (anki-connect-model-names))))
+
+  (anki-edit-mode)
+  ;; (kill-all-local-variables)
+  (let ((inhibit-read-only t))
+    (erase-buffer))
+  (remove-overlays)
+  (widget-insert "Create a new card \n\n")
+
+
   (widget-setup)
   (widget-forward 1))
 
@@ -129,13 +159,11 @@
 
 (defun anki--create-field (field-data)
   (let ((field-name (car field-data))
-        (field-value (cdr field-data))
-        widget)
-    (setq widget (widget-create 'editable-field
-                                :format (concat field-name ":\n%v")
-                                :value (or field-value "")))
-    (widget-put widget :anki-field-name field-name)
-    widget))
+        (field-value (cdr field-data)))
+    (->>
+     (anki--om-parse-object-string (or field-value "\n"))
+     (om-build-headline :title (list field-name)
+			:post-blank (and (not field-value) 1)))))
 
 (defun anki-convert-org-to-html (org)
   "Convert ORG to html string."
@@ -162,3 +190,17 @@
       (substring (shell-command-to-string
                   (format "pandoc -f html -t org %s" html-temp-file))
                  nil -1))))
+;;; Helper functions
+
+(defun anki--om-parse-object-string (string)
+  (with-temp-buffer
+    (insert string)
+    (om-parse-section-at 1)))
+
+(defun anki--om-to-string (node)
+  "Same as `om-to-string' but doesn't apply `om--clean' or
+`om--blank' both of which seem to duplicate data."
+  ;; TODO: Look into why `om-to-string' is causing duplicated data.
+  (->> node
+       (org-element-interpret-data)
+       (substring-no-properties)))
