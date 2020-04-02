@@ -94,6 +94,9 @@
   (defvar-local anki-note-type note-type)
   (defvar-local anki-note-id note-id)
 
+  (mapc (lambda (var) (put var 'permanent-local t))
+	'(anki-field-widgets anki-deck-name anki-note-type anki-note-id))
+
   (setq anki-deck-name deck
         anki-note-type note-type
         anki-note-id note-id)
@@ -103,24 +106,11 @@
           (and note-id (anki--note-field-data (anki-connect-note-info note-id)))
           (mapcar 'list (anki-connect-model-field-names note-type)))))
     (setq anki-field-widgets (mapcar 'anki--create-field fields))
-    ;; Populate
-    ;; (use-local-map widget-keymap)
-    ;; (widget-create 'push-button
-    ;;                :notify (lambda (&rest ignore)
-    ;;                          (let ((fields (mapcar
-    ;;                                         (lambda (widget)
-    ;;                                           (cons (widget-get widget :anki-field-name)
-    ;;                                                 (anki-convert-org-to-html (widget-value widget))))
-    ;;                                         anki-field-widgets)))
-    ;;                            (if anki-note-id
-    ;;                                (anki-connect-update-note anki-note-id fields)
-    ;;                              (setq anki-note-id
-    ;;                                    (anki-connect-add-note anki-deck-name anki-note-type fields)))
-    ;;                            (anki-form-note anki-deck-name anki-note-type)))
-    ;;                "Submit")
-    (om-insert 1 anki-field-widgets)))
+    (om-insert 1 anki-field-widgets)
+    (anki-edit-mode)))
 
 (defun anki-edit-submit ()
+  (interactive)
   ;; TODO: Possibly split the field generation into separate function
   (let ((fields (mapcar (lambda (field)
 			  (cons (anki--om-to-string (om-get-property :title field))
@@ -131,23 +121,6 @@
       (setq anki-note-id
 	    (anki-connect-add-note anki-deck-name anki-note-type fields)))
     (anki-edit--note anki-deck-name anki-note-type)))
-
-(defun anki-form-note (&optional deck note-type note-id)
-  "Anki widget"
-  (interactive
-   (list (completing-read "Deck: " (anki-connect-deck-names))
-         (completing-read "Note Type: " (anki-connect-model-names))))
-
-  (anki-edit-mode)
-  ;; (kill-all-local-variables)
-  (let ((inhibit-read-only t))
-    (erase-buffer))
-  (remove-overlays)
-  (widget-insert "Create a new card \n\n")
-
-
-  (widget-setup)
-  (widget-forward 1))
 
 (defun anki--note-field-data (note-data)
   "Transform NOTE-DATA to an alist of field name and org field value."
@@ -164,6 +137,24 @@
      (anki--om-parse-object-string (or field-value "\n"))
      (om-build-headline :title (list field-name)
 			:post-blank (and (not field-value) 1)))))
+
+(defun anki-edit-next-field ()
+  (interactive)
+  (let ((start-point (point)))
+    (if (not (org-at-heading-p))
+	(progn (org-next-visible-heading 1)
+	       (if (eq start-point (point))
+		   (progn (goto-char (point-min))
+			  (anki-edit-next-field))
+		 (forward-line 1)))
+      (forward-line 1))))
+
+(defun anki-edit-previous-field ()
+  (interactive)
+  ;; TODO: Handle going from first field to last
+  (when (not (org-at-heading-p))
+    (org-next-visible-heading -1))
+  (forward-line -1))
 
 (defun anki-convert-org-to-html (org)
   "Convert ORG to html string."
@@ -190,6 +181,27 @@
       (substring (shell-command-to-string
                   (format "pandoc -f html -t org %s" html-temp-file))
                  nil -1))))
+;;; Anki Edit Mode
+
+(defvar anki-edit-mode-map
+  (let ((map (make-sparse-keymap)))
+    (set-keymap-parent
+     map
+     org-mode-map)
+    (define-key map (kbd "M-n") #'anki-edit-next-field)
+    (define-key map (kbd "<tab>") #'anki-edit-next-field)
+    (define-key map (kbd "M-p") #'anki-edit-previous-field)
+    (define-key map (kbd "<backtab>") #'anki-edit-previous-field)
+    (define-key map (kbd "S-TAB") #'anki-edit-previous-field)
+    (define-key map (kbd "<S-tab>") #'anki-edit-previous-field)
+    (define-key map (kbd "C-c C-c") #'anki-edit-submit)
+    map)
+  "Keymap for Anki Edit mode")
+
+(define-derived-mode anki-edit-mode org-mode "AnkiEdit"
+  (org-show-all)
+  (forward-line))
+
 ;;; Helper functions
 
 (defun anki--om-parse-object-string (string)
