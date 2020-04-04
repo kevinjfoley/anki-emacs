@@ -187,7 +187,7 @@
       (with-temp-buffer
         (insert org)
         (mark-whole-buffer)
-        (org-html-convert-region-to-html)
+        (org-export-replace-region-by 'anki)
         ;; Remove paragraph tags
         (goto-char (point-min))
         (when (search-forward "<p>" nil t)
@@ -220,6 +220,39 @@ Includes handling converting sound tags to org links"
        (format "[[file:%s]]" (replace-regexp-in-string "\\\\_" "_" (match-string 1 match)))))
     ;; Add media directory
     (replace-regexp-in-string "\\[file:\\(.+?\\)\\]" (format "[file:%s/\\1]" (or anki-media-directory "~")))))
+
+;;; Org Export Backend
+
+(defun anki-link (link desc info)
+  (let* ((type (org-element-property :type link))
+	 (raw-path (org-element-property :path link))
+	 (file-name (file-name-nondirectory raw-path))
+	 (file-type (downcase (file-name-extension raw-path t)))
+	 (image-formats '(".jpeg" ".jpg" ".png" ".gif" ".svg"))
+	 (sound-formats '(".mp3"))
+	 (supported-formats (append image-formats sound-formats)))
+    (when (and (string= "file" type)
+	       (member file-type supported-formats))
+      ;; TODO: Store these function calls and call them during card
+      ;; creation to avoid side effects here
+      (unless (equal (file-name-directory raw-path) anki-media-directory)
+	(anki-connect-store-media-file raw-path))
+      (cond
+       ((member file-type image-formats)
+	;; TODO: Handle SVG
+	(org-html-close-tag "img" (org-html--make-attribute-string
+				   (list :src file-name
+					 :alt file-name))
+			    info))
+       ((member file-type sound-formats)
+	(format "[sound:%s]" file-name))))))
+
+(org-export-define-derived-backend 'anki 'html
+  :translate-alist '((link . anki-link)))
+
+(defun anki-link-filter (data _backend info)
+  (setq anki-test-var (list data info)))
+
 ;;; Anki Edit Mode
 
 (defvar anki-edit-mode-map
