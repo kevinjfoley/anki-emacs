@@ -103,9 +103,12 @@
   (anki-edit--note deck note-type))
 
 (defun anki-edit-note (note-id)
-  (anki-edit--note nil nil note-id))
+  ;; TODO: Find a way to make sure card isn't currently being browsed
+  ;; as then we won't be able to edit.  Should also check when
+  ;; submitting.
+  (anki-edit--note nil nil (anki-connect-note-info note-id)))
 
-(defun anki-edit--note (&optional deck note-type note-id)
+(defun anki-edit--note (&optional deck note-type note-info)
   ;; Setup
   (when (get-buffer "*Anki Note*")
     (kill-buffer "*Anki Note*"))
@@ -119,13 +122,13 @@
   (mapc (lambda (var) (put var 'permanent-local t))
 	'(anki-field-widgets anki-deck-name anki-note-type anki-note-id))
 
-  (setq anki-deck-name deck
-        anki-note-type note-type
-        anki-note-id note-id)
+  (setq anki-deck-name (or deck (alist-get 'deckName note-info)) 	; No deck info from anki-connect
+        anki-note-type (or note-type (alist-get 'modelName note-info))
+        anki-note-id (alist-get 'noteId note-info))
 
   (let ((fields
 	 (or
-          (and note-id (anki--note-field-data (anki-connect-note-info note-id)))
+          (and note-info (anki--note-field-data note-info))
           (mapcar 'list (anki-connect-model-field-names note-type)))))
     (setq anki-field-widgets (mapcar 'anki--create-field fields))
     (om-insert 1 anki-field-widgets)
