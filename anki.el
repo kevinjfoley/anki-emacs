@@ -86,6 +86,13 @@
               (options . ((allowDuplicate . ,(or allow-duplicate :json-false))))
               (tags . ,(vconcat tags))))))))
 
+(defun anki-connect-store-media-file (file)
+  (let ((data (base64-encode-string
+	       (with-temp-buffer
+		 (insert-file-contents file)
+		 (buffer-string))))
+	(filename (file-name-nondirectory file)))
+    (anki-connect-action "storeMediaFile" `((filename . ,filename) (data . ,data)))))
 
 ;;; Forms
 
