@@ -204,12 +204,14 @@
 (defun anki-convert-html-to-org (html)
   (when html
     (let ((html-temp-file (make-temp-file "html" nil ".html" html)))
-      (anki--convert-links
-       (substring (shell-command-to-string
-                   (format "pandoc -f html -t org %s" html-temp-file))
-                  nil -1)))))
+      (thread-last
+	  (substring (shell-command-to-string
+		      (format "pandoc -f html -t org %s" html-temp-file))
+		     nil -1)
+	(anki--html-convert-links)
+	(anki--html-clean-underscores)))))
 
-(defun anki--convert-links (org)
+(defun anki--html-convert-links (org)
   "Convert links in ORG to reference file in `anki-media-directory'.
 
 Includes handling converting sound tags to org links"
@@ -221,6 +223,10 @@ Includes handling converting sound tags to org links"
        (format "[[file:%s]]" (replace-regexp-in-string "\\\\_" "_" (match-string 1 match)))))
     ;; Add media directory
     (replace-regexp-in-string "\\[file:\\(.+?\\)\\]" (format "[file:%s/\\1]" (or anki-media-directory "~")))))
+
+(defun anki--html-clean-underscores (org)
+  "Replace escaped underscores with latex like syntax \\under{}"
+  (replace-regexp-in-string "\\\\_" "\\\\under{}" org))
 
 ;;; Org Export Backend
 
