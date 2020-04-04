@@ -156,8 +156,9 @@
           (alist-get 'fields note-data)))
 
 (defun anki--create-field (field-data)
-  (let ((field-name (car field-data))
-        (field-value (cdr field-data)))
+  (let* ((field-name (car field-data))
+	 (field-value (cdr field-data))
+	 (field-value (if (equal field-value "") nil field-value)))
     (->>
      (anki--om-parse-object-string (or field-value "\n"))
      (om-build-headline :title (list field-name)
