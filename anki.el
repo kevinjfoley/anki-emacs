@@ -63,6 +63,17 @@
 (defun anki-connect-card-info (card-id)
   (aref (anki-connect-action "cardsInfo" `(("cards" . (,card-id)))) 0))
 
+(defun anki-connect-update-note (note-id &optional fields tags)
+  (let ((json-null))
+    (anki-connect-action
+     "updateNoteFields"
+     `((note .
+             ((id . ,note-id)
+              (fields . ,fields)))))
+    ;; TODO: Handle tags (need to get current, then add/remove as
+    ;;       needed
+    ))
+
 (defun anki-connect-add-note (deck-name model-name fields &optional tags allow-duplicate audio)
   (let ((json-null))
     (anki-connect-action
@@ -75,16 +86,6 @@
               (options . ((allowDuplicate . ,(or allow-duplicate :json-false))))
               (tags . ,(vconcat tags))))))))
 
-(defun anki-connect-update-note (note-id &optional fields tags)
-  (let ((json-null))
-    (anki-connect-action
-     "updateNoteFields"
-     `((note .
-             ((id . ,note-id)
-              (fields . ,fields)))))
-    ;; TODO: Handle tags (need to get current, then add/remove as
-    ;;       needed
-    ))
 
 ;;; Forms
 
