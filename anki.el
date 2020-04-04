@@ -114,13 +114,12 @@
     (kill-buffer "*Anki Note*"))
   (switch-to-buffer "*Anki Note*")
   (org-mode)
-  (defvar-local anki-field-widgets nil)
   (defvar-local anki-deck-name deck)
   (defvar-local anki-note-type note-type)
   (defvar-local anki-note-id note-id)
 
   (mapc (lambda (var) (put var 'permanent-local t))
-	'(anki-field-widgets anki-deck-name anki-note-type anki-note-id))
+	'(anki-deck-name anki-note-type anki-note-id))
 
   (setq anki-deck-name (or deck (alist-get 'deckName note-info)) 	; No deck info from anki-connect
         anki-note-type (or note-type (alist-get 'modelName note-info))
@@ -130,8 +129,7 @@
 	 (or
           (and note-info (anki--note-field-data note-info))
           (mapcar 'list (anki-connect-model-field-names note-type)))))
-    (setq anki-field-widgets (mapcar 'anki--create-field fields))
-    (om-insert 1 anki-field-widgets)
+    (om-insert 1 (mapcar 'anki--create-field fields))
     (anki-edit-mode)))
 
 (defun anki-edit-submit ()
