@@ -53,7 +53,15 @@
     (anki-connect-action "modelFieldNames" `(("modelName" . ,model-name)))))
 
 (defun anki-connect-note-info (note-id)
-  (aref (anki-connect-action "notesInfo" `(("notes" . (,note-id)))) 0))
+  ;; TODO: create function for multiple notes and then call it from here
+  (let* ((note-info
+	  (aref (anki-connect-action "notesInfo" `(("notes" . (,note-id)))) 0))
+	 ;; Get info for first card since anki stores deck at card level
+	 (card-info (anki-connect-card-info (elt (alist-get 'cards note-info) 0))))
+    (append note-info `((deckName . ,(alist-get 'deckName card-info))))))
+
+(defun anki-connect-card-info (card-id)
+  (aref (anki-connect-action "cardsInfo" `(("cards" . (,card-id)))) 0))
 
 (defun anki-connect-add-note (deck-name model-name fields &optional tags allow-duplicate audio)
   (let ((json-null))
