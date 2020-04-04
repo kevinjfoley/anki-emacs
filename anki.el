@@ -1,3 +1,6 @@
+;;; -*- lexical-binding: t; -*-
+
+
 (require 'widget)
 
 ;;; Anki Connect
