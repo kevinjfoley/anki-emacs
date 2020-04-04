@@ -203,9 +203,23 @@
 (defun anki-convert-html-to-org (html)
   (when html
     (let ((html-temp-file (make-temp-file "html" nil ".html" html)))
-      (substring (shell-command-to-string
-                  (format "pandoc -f html -t org %s" html-temp-file))
-                 nil -1))))
+      (anki--convert-links
+       (substring (shell-command-to-string
+                   (format "pandoc -f html -t org %s" html-temp-file))
+                  nil -1)))))
+
+(defun anki--convert-links (org)
+  "Convert links in ORG to reference file in `anki-media-directory'.
+
+Includes handling converting sound tags to org links"
+  (thread-last org
+    ;; Fix sound references
+    (replace-regexp-in-string
+     "\\[sound:\\(.+?\\)\\]"
+     (lambda (match)
+       (format "[[file:%s]]" (replace-regexp-in-string "\\\\_" "_" (match-string 1 match)))))
+    ;; Add media directory
+    (replace-regexp-in-string "\\[file:\\(.+?\\)\\]" (format "[file:%s/\\1]" (or anki-media-directory "~")))))
 ;;; Anki Edit Mode
 
 (defvar anki-edit-mode-map
