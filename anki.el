@@ -121,7 +121,7 @@
   (mapc (lambda (var) (put var 'permanent-local t))
 	'(anki-deck-name anki-note-type anki-note-id))
 
-  (setq anki-deck-name (or deck (alist-get 'deckName note-info)) 	; No deck info from anki-connect
+  (setq anki-deck-name (or deck (alist-get 'deckName note-info))
         anki-note-type (or note-type (alist-get 'modelName note-info))
         anki-note-id (alist-get 'noteId note-info))
 
