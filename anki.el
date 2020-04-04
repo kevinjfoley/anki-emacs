@@ -8,6 +8,9 @@
 (defconst anki-connect-default-version 6
   "Version of anki connect API to use if none specified.")
 
+(defvar anki-media-directory nil
+  "Path to anki-media-directory")
+
 (cl-defun anki-connect--action-format (action &optional params (version anki-connect-default-version))
   "Format ACTION, PARAMS, and VERSION to be submitted to anki connect."
   (let (anki-action-data)
